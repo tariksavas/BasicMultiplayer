@@ -52,8 +52,11 @@ public class ShopManager : MonoBehaviour
     private DatabaseReference userDataRef;
 
     public static ShopManager shopManagerClass;
+    
+    //Bu script MainMenu sahnesindeki ScriptObject 'e atanmıştır.
     private void Awake()
     {
+        //Aktif olan kullanıcıya ait Database referans alınır.
         shopManagerClass = this;
 
         auth = FirebaseAuth.DefaultInstance;
@@ -62,11 +65,13 @@ public class ShopManager : MonoBehaviour
     }
     private void Start()
     {
+        //Editörden alınan BallPrice'lar ilgili textlere girilir.
         redBallPriceText.text = redBallPrice.ToString();
         blueBallPriceText.text = blueBallPrice.ToString();
         greenBallPriceText.text = greenBallPrice.ToString();
         yellowBallPriceText.text = yellowBallPrice.ToString();
 
+        //Editörden alınan BallMoneyType'a (crystal, coin) ve BallPrice'larına göre ilgili metoda referans gönderilmektedir.
         SetBallPriceImage(redBallPriceImage, redBallMoneyType);
         SetBallPriceImage(blueBallPriceImage, blueBallMoneyType);
         SetBallPriceImage(greenBallPriceImage, greenBallMoneyType);
@@ -74,6 +79,7 @@ public class ShopManager : MonoBehaviour
     }
     private void SetBallPriceImage(Image refImage, MoneyType moneyType)
     {
+        //Referans alınan MoneyType ve refImage'e göre topların spritelerı işlenmektedir.
         if (moneyType == MoneyType.Coin)
             refImage.sprite = coinSprite;
         else
@@ -81,6 +87,7 @@ public class ShopManager : MonoBehaviour
     }
     private void BuyBall(int price, MoneyType moneyType, Color ballColor)
     {
+        //Referans alınan para birimine, miktarına ve topun rengine göre topun satın alma işlemi başlatılmaktadır.
         userDataRef.Child(auth.CurrentUser.UserId).GetValueAsync().ContinueWithOnMainThread(task =>
         {
             DataSnapshot snapshot = task.Result;
@@ -92,6 +99,7 @@ public class ShopManager : MonoBehaviour
                 UserData user = JsonUtility.FromJson<UserData>(snapshot.GetRawJsonValue());
                 if (moneyType == MoneyType.Coin)
                 {
+                    //Para coin ise çalışır
                     if (price <= user.coin)
                     {
                         buyingColor = ballColor;
@@ -102,6 +110,7 @@ public class ShopManager : MonoBehaviour
                 }
                 else
                 {
+                    //Para crystal ise çalışır
                     if (price <= user.crystal)
                     {
                         buyingColor = ballColor;
@@ -115,8 +124,10 @@ public class ShopManager : MonoBehaviour
     }
     public void UpdateButtons(Color[] inventory, int inventoryLength, Color skin)
     {
+        //Satın alma ya da topu kullanma işleminden sonra butonların görünümü düzenlenir.
         for (int i = 0; i < inventoryLength; i++)
         {
+            //Kullanıcının envanterinde toplar vardır ve hangi top bulunuyorsa buton "Use" adını almaktadır.
             if (inventory[i] == Color.red)
                 redBallButton.GetComponentInChildren<Text>().text = "Use";
             else if (inventory[i] == Color.blue)
@@ -126,6 +137,7 @@ public class ShopManager : MonoBehaviour
             else if (inventory[i] == Color.yellow)
                 yellowBallButton.GetComponentInChildren<Text>().text = "Use";
         }
+        //Referans alınan skin değişkeni kullanıcının şuan kullandığı skini ifade etmektedir.
         if (skin == Color.red)
             redBallButton.GetComponentInChildren<Text>().text = "Using";
         else if (skin == Color.blue)
@@ -137,6 +149,7 @@ public class ShopManager : MonoBehaviour
     }
     private void UseBall(Color ballColor)
     {
+        //Referans alınan top rengi kullanıcının skin değişkenine atanır.
         userDataRef.Child(auth.CurrentUser.UserId).GetValueAsync().ContinueWithOnMainThread(task =>
         {
             DataSnapshot snapshot = task.Result;
@@ -145,12 +158,15 @@ public class ShopManager : MonoBehaviour
                 UserData user = JsonUtility.FromJson<UserData>(snapshot.GetRawJsonValue());
                 user.skin = ballColor;
                 userDataRef.Child(auth.CurrentUser.UserId).SetRawJsonValueAsync(JsonUtility.ToJson(user));
+
+                //Butonlar tekrardan düzenlenir.
                 UpdateButtons(user.inventory,user.inventoryLength,user.skin);
             }
         });
     }
     public void RedBall()
     {
+        //Kırmızı topa ait butona tanımlanmıştır.
         if (redBallButton.GetComponentInChildren<Text>().text == "Buy")
             BuyBall(redBallPrice, redBallMoneyType, Color.red);
         else
@@ -158,41 +174,48 @@ public class ShopManager : MonoBehaviour
     }
     public void BlueBall()
     {
-        if(blueBallButton.GetComponentInChildren<Text>().text == "Buy")
+        //Mavi topa ait butona tanımlanmıştır.
+        if (blueBallButton.GetComponentInChildren<Text>().text == "Buy")
             BuyBall(blueBallPrice, blueBallMoneyType, Color.blue);
         else
             UseBall(Color.blue);
     }
     public void GreenBall()
     {
-        if(greenBallButton.GetComponentInChildren<Text>().text == "Buy")
+        //Yeşil topa ait butona tanımlanmıştır.
+        if (greenBallButton.GetComponentInChildren<Text>().text == "Buy")
             BuyBall(greenBallPrice, greenBallMoneyType, Color.green);
         else
             UseBall(Color.green);
     }
     public void YellowBall()
     {
-        if(yellowBallButton.GetComponentInChildren<Text>().text == "Buy")
+        //Sarı topa ait butona tanımlanmıştır.
+        if (yellowBallButton.GetComponentInChildren<Text>().text == "Buy")
             BuyBall(yellowBallPrice, yellowBallMoneyType, Color.yellow);
         else
             UseBall(Color.yellow);
     }
     public void Yes()
     {
+        //Top satın alma sırasında karşımıza çıkan "Are you sure?" menüsündeki "Yes" butouna tanımlanmıştır.
         userDataRef.Child(auth.CurrentUser.UserId).GetValueAsync().ContinueWithOnMainThread(task =>
         {
             DataSnapshot snapshot = task.Result;
             if (snapshot.GetRawJsonValue() != null)
             {
+                //Aktif olan kullanıcının envanterine ilgili top dahil edilir.
                 UserData user = JsonUtility.FromJson<UserData>(snapshot.GetRawJsonValue());
                 user.inventory[user.inventoryLength] = buyingColor;
                 user.inventoryLength++;
 
+                //Aktif olan kullanıcının hesabından BallPrice düşülür.
                 if (buyingMoneyType == MoneyType.Coin)
                     user.coin -= buyingPrice;
                 else
                     user.crystal -= buyingPrice;
 
+                //Bu işlemlerden sonra kullanıcıya ait değişkenler Database'e ve menüdeki textlere yazılır.
                 userDataRef.Child(auth.CurrentUser.UserId).SetRawJsonValueAsync(JsonUtility.ToJson(user));
                 UpdateButtons(user.inventory, user.inventoryLength, user.skin);
                 crystalText.text = user.crystal.ToString();
@@ -203,6 +226,7 @@ public class ShopManager : MonoBehaviour
     }
     public void No()
     {
+        //Satın alma işlemi sırasında "Are you sure?" menüsündeki "No" butonuna tanımlanmıştır.
         buyingColor = Color.white;
         SureMenu.SetActive(false);
     }

@@ -29,7 +29,13 @@ public class MultiplayerManager : MonoBehaviour
     [SerializeField] private Transform player = null;
     [SerializeField] private Transform finishObject = null;
 
+    private GameObject[] otherPlayers;
+
     private List<string> placeList = new List<string>();
+
+    private FirebaseAuth auth;
+    private DatabaseReference userDataRef;
+    private DatabaseReference roomRef;
 
     private int playingPlayerCount = 0;
     private long connectedPlayerCount = 0;
@@ -38,16 +44,12 @@ public class MultiplayerManager : MonoBehaviour
     private bool waiting = true;
     private bool starting = false;
 
-    private GameObject[] otherPlayers;
-    private string[] otherPlayersNick;
-
-    private FirebaseAuth auth;
-    private DatabaseReference userDataRef;
-    private DatabaseReference roomRef;
-
     public static MultiplayerManager multiplayerManagerClass;
+
+    //Bu script Multiplayer oyun sahnesindeki ScriptObject'e aktarılmıştır.
     private void Awake()
     {
+        //İlgili referanslar değişkenlere tanımlanır.
         auth = FirebaseAuth.DefaultInstance;
         FirebaseApp.DefaultInstance.SetEditorDatabaseUrl("https://caycomtech-d31a3.firebaseio.com/");
         userDataRef = FirebaseDatabase.DefaultInstance.GetReference("UserDatas");
@@ -56,6 +58,8 @@ public class MultiplayerManager : MonoBehaviour
     private void Start()
     {
         multiplayerManagerClass = this;
+
+        //Aktif oyuncu sahneye bağlandığı sırada Database'e kendi verilerini gönderir ve kostüm değişikliği uygulanır.
         userDataRef.Child(auth.CurrentUser.UserId).GetValueAsync().ContinueWithOnMainThread(task =>
         {
             DataSnapshot snapshot = task.Result;
@@ -70,6 +74,8 @@ public class MultiplayerManager : MonoBehaviour
                 playerObject.GetComponent<Renderer>().material.color = me.skin;
             }
         });
+
+        //Aktif oyuncunun bulunduğu odadaki oyuna bağlanacak olan oyuncu sayısı ilgili değişkene atanır.
         roomRef.GetValueAsync().ContinueWithOnMainThread(task =>
         {
             DataSnapshot snapshot = task.Result;
@@ -77,8 +83,6 @@ public class MultiplayerManager : MonoBehaviour
             {
                 RoomData room = JsonUtility.FromJson<RoomData>(snapshot.GetRawJsonValue());
                 playingPlayerCount = room.playingPlayerCount;
-
-                roomRef.Child("playingPlayerCount").SetValueAsync(0);
             }
         });
     }
@@ -86,6 +90,7 @@ public class MultiplayerManager : MonoBehaviour
     {
         if (waiting)
         {
+            //Diğer oyuncular beklenirken, tüm oyuncular bağlandıysa ya da maksimum bekleme süresine ulaşıldıysa oyuna başlanır.
             waitTimer += Time.deltaTime;
             roomRef.Child("GameScene").GetValueAsync().ContinueWithOnMainThread(task =>
             {
@@ -98,13 +103,13 @@ public class MultiplayerManager : MonoBehaviour
                         waiting = false;
                         starting = true;
                         otherPlayers = new GameObject[connectedPlayerCount - 1];
-                        otherPlayersNick = new string[connectedPlayerCount - 1];
                     }
                 }
             });
         }        
         if (starting)
         {
+            //Oyunun başlaması tetiklendiğinde başlatma için editörden alınan sayıdan geriye sayılır.
             startingText.text = "The game will start after " + (int)(maxWaitTimeForStart - startTimer) + " seconds";
             startTimer += Time.deltaTime;
             if(startTimer >= maxWaitTimeForStart)
@@ -118,12 +123,15 @@ public class MultiplayerManager : MonoBehaviour
                         int i = 0;
                         foreach (DataSnapshot ds in snapshot.Children)
                         {
+                            //Tüm oyuncular listeye eklenir.
                             Player otherPlayer = JsonUtility.FromJson<Player>(ds.GetRawJsonValue());
                             placeList.Add((i + 1) + ". " + otherPlayer.nick);
+
+                            //Eğer ki ilgili oyuncu Aktif oyuncu ile aynı ID'ye sahipse bu oyuncu sahnede tekrar oluşturulmaz.
                             if (otherPlayer.userId == auth.CurrentUser.UserId)
                                 continue;
 
-                            otherPlayersNick[i] = otherPlayer.nick;
+                            //İlgili oyuncu sahnede oluşturulur ve skin değişkeni uygulanır.
                             otherPlayers[i] = Instantiate(otherPlayerPrefab);
                             otherPlayers[i].GetComponent<Renderer>().material.color = otherPlayer.skin;
                             i++;
@@ -135,6 +143,7 @@ public class MultiplayerManager : MonoBehaviour
                 gamingMenu.SetActive(true);
                 playerObject.GetComponent<Rigidbody>().useGravity = true;
 
+                //Oyun başlatıldıktan sonra listeye eklenen oyuncular Database'e yazdırılır.
                 GameScenePlaces playerPlaces = new GameScenePlaces();
                 playerPlaces.finishedPlayerCount = 0;
                 roomRef.Child("GameScenePlaces").SetRawJsonValueAsync(JsonUtility.ToJson(playerPlaces));
@@ -144,12 +153,14 @@ public class MultiplayerManager : MonoBehaviour
     }
     private void FixedUpdate()
     {
+        //Oyunda sürekli konum gönderme ve rakip oyuncuların konumunu alma sağlanır. Oyuncuların mesafe sıraları da alınmaktadır.
         SendMeToDatabase();
         GetPlayerFromDatabase();
         OrderByDistance();
     }
     public void EndGameStatement(int heartCount, int earnedCoinCount, int earnedCrystalCount)
     {
+        //GameManager scriptindeki trigger vasıtasıyla oyun bittiğinde bu metot çağırılır. Referanslar alınır.
         roomRef.Child("GameScenePlaces").GetValueAsync().ContinueWithOnMainThread(task =>
         {
             DataSnapshot snapshot = task.Result;
@@ -160,6 +171,8 @@ public class MultiplayerManager : MonoBehaviour
                 int place = playerPlaces.finishedPlayerCount;
                 roomRef.Child("GameScenePlaces").SetRawJsonValueAsync(JsonUtility.ToJson(playerPlaces));
 
+                //Oyuncunun oyunu kaçıncı bitirdiğine ve kaç can harcadığına göre bir puan elde edilir.
+                //O puana göre oyuncunun elde ettiği coin ve energy miktarları çarpılır.
                 int placeResultPoint = (int)(connectedPlayerCount + 1) - place;
                 int remainingHeartPoint = heartCount * placeResultPoint;
                 int earnedCoin = remainingHeartPoint * earnedCoinCount;
@@ -167,6 +180,7 @@ public class MultiplayerManager : MonoBehaviour
 
                 UpdateUserData(earnedCoin, earnedCrystal);
 
+                //Bitiş menüsündeki ilgili textlere gerekli bilgiler yazılır.
                 finishPlaceText.text = "-" + place + "-";
                 placeResultText.text = "+" + placeResultPoint + " point";
                 remainingHeartText.text = "+" + remainingHeartPoint + " point";
@@ -177,6 +191,7 @@ public class MultiplayerManager : MonoBehaviour
     }
     private void UpdateUserData(int earnedCoin, int earnedCrystal)
     {
+        //Referans alınan energy ve coin miktarına göre Aktif oyuncu için Database'de güncellenir.
         userDataRef = FirebaseDatabase.DefaultInstance.GetReference("UserDatas").Child(auth.CurrentUser.UserId);
         userDataRef.GetValueAsync().ContinueWithOnMainThread(task =>
         {
@@ -192,10 +207,12 @@ public class MultiplayerManager : MonoBehaviour
     }
     private void SendMeToDatabase()
     {
+        //Aktif oyuncunun position bilgilerini Database'e göndermesini sağlar.
         Player.PlayerPosition myPosition = new Player.PlayerPosition();
         myPosition.position = player.position;
         roomRef.Child("GameScene").Child(auth.CurrentUser.UserId).Child("Transform").SetRawJsonValueAsync(JsonUtility.ToJson(myPosition));
 
+        //Aktif oyuncunun bitiş noktasına olan mesafesini de Database'e gönderir. Böylelikle bu mesafelere göre anlık sıralama yapılır.
         GameSceneDistances myDistance = new GameSceneDistances();
         myDistance.nick = DatabaseManager.nick;
         myDistance.distance = Vector3.Distance(player.position, finishObject.position);
@@ -203,6 +220,7 @@ public class MultiplayerManager : MonoBehaviour
     }
     private void GetPlayerFromDatabase()
     {
+        //Databaseden diğer oyuncuların anlık olaran position değerlerini almamızı sağlar.
         roomRef.Child("GameScene").GetValueAsync().ContinueWith(task =>
         {
             DataSnapshot snapshot = task.Result;
@@ -212,11 +230,14 @@ public class MultiplayerManager : MonoBehaviour
                 foreach (DataSnapshot ds in snapshot.Children)
                 {
                     Player otherPlayer = JsonUtility.FromJson<Player>(ds.GetRawJsonValue());
+
+                    //Eğer ki ilgili oyuncu aktif oyuncu ile aynı ID'ye sahipse bu oyuncuyu atla.
                     if (otherPlayer.userId == auth.CurrentUser.UserId)
                         continue;
 
                     Player.PlayerPosition otherPlayerTransform = JsonUtility.FromJson<Player.PlayerPosition>(ds.Child("Transform").GetRawJsonValue());
                     
+                    //otherPlayers GameObject dizisindeki prefabların position değerleri ilgili oyunculara göre güncellenir.
                     float x = otherPlayerTransform.position.x;
                     float y = otherPlayerTransform.position.y;
                     float z = otherPlayerTransform.position.z;
@@ -228,6 +249,7 @@ public class MultiplayerManager : MonoBehaviour
     }
     private void OrderByDistance()
     {
+        //Databaseden oyuncuların distance değerine göre sırayla çekilmesini sağlar.
         roomRef.Child("GameSceneDistances").OrderByChild("distance").GetValueAsync().ContinueWithOnMainThread(task =>
         {
             DataSnapshot snapshot = task.Result;
@@ -237,6 +259,7 @@ public class MultiplayerManager : MonoBehaviour
                 foreach (DataSnapshot ds in snapshot.Children)
                 {
                     GameSceneDistances playerDistance = JsonUtility.FromJson<GameSceneDistances>(ds.GetRawJsonValue());
+                    //Eğer oyuncuların sıralama tablosundaki yeri aynı ise tekrar güncellenmez.
                     if (placeList[i] != ((i + 1) + ". " + playerDistance.nick))
                     {
                         placeList[i] = ((i + 1) + ". " + playerDistance.nick);
@@ -249,6 +272,7 @@ public class MultiplayerManager : MonoBehaviour
     }
     private void UpdatePlaceText()
     {
+        //Arayüzdeki sıralama texti listeye göre güncellenir.
         for (int i = 0; i < placePanel.transform.childCount; i++)
             Destroy(placePanel.transform.GetChild(i).gameObject);
         for (int i = 0; i < placeList.Count; i++)
@@ -260,6 +284,7 @@ public class MultiplayerManager : MonoBehaviour
 }
 public class Player
 {
+    //Oyuna bağlanan oyunculara ait classtır.
     public string userId;
     public string nick;
     public Color skin;
@@ -270,11 +295,13 @@ public class Player
 }
 public class GameSceneDistances
 {
+    //Oyuncuların bitişe olan mesafelerini içeren classtır.
     public string userId;
     public string nick;
     public float distance;
 }
 public class GameScenePlaces
 {
+    //Oyunu bitiren oyuncu sayısını içeren classtır. Bu değere göre bitiş sıralaması yapılır.
     public int finishedPlayerCount;
 }

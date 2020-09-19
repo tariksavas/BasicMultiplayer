@@ -1,5 +1,4 @@
 ﻿using Firebase;
-using Firebase.Auth;
 using Firebase.Database;
 using Firebase.Extensions;
 using Firebase.Unity.Editor;
@@ -8,24 +7,24 @@ using UnityEngine;
 using UnityEngine.UI;
 public class MessageManager : MonoBehaviour
 {
+    [SerializeField] private int messageLimit = 20;
+    [SerializeField] private float refreshChatDelay = 0.1f;
+
     [SerializeField] private GameObject chatPanel = null;
     [SerializeField] private GameObject textObject = null;
     [SerializeField] private InputField chatInput = null;
-    [SerializeField] private int messageLimit = 20;
-    [SerializeField] private float refreshChatDelay = 0.1f;
+
+    private DatabaseReference roomsRef;
+
     private float refreshChatTimer = 0;
     private bool refreshedChat = false;
 
-    private FirebaseAuth auth;
-    private DatabaseReference roomsRef;
-
     public static bool leftRoom = false;
-    private void Awake()
-    {
-        auth = FirebaseAuth.DefaultInstance;
-    }
+
+    //Bu script MainMenu sahnesindeki ScriptObject 'e atanmıştır.
     private void Start()
     {
+        //Database linki düzenlenir ve "Rooms" ağacı referans alınır.
         FirebaseApp.DefaultInstance.SetEditorDatabaseUrl("https://caycomtech-d31a3.firebaseio.com/");
         roomsRef = FirebaseDatabase.DefaultInstance.GetReference("Rooms");
     }
@@ -33,6 +32,7 @@ public class MessageManager : MonoBehaviour
     {
         if (RoomManager.roomManagerClass.inRoom)
         {
+            //Eğer ki oyuncu odada ise bir değişiklik olup olmadığı listener vasıtasıyla dinlenir.
             roomsRef.ChildAdded += HandleChatChanged;
             roomsRef.ChildChanged += HandleChatChanged;
             roomsRef.ChildRemoved += HandleChatChanged;
@@ -40,11 +40,13 @@ public class MessageManager : MonoBehaviour
         }
         if (!RoomManager.roomManagerClass.inRoom && leftRoom)
         {
+            //Oyuncu odadan ayrıldıysa messages bölümü temizlenir.
             leftRoom = false;
             ClearChat();
         }
         if (refreshedChat)
         {
+            //Odada bir değişiklik varsa belirli bir delay sonra chat güncellenir.
             refreshChatTimer += Time.deltaTime;
             if(refreshChatTimer >= refreshChatDelay)
             {
@@ -60,11 +62,13 @@ public class MessageManager : MonoBehaviour
     }
     private void GetMessagesFromDatabase()
     {
+        //Mesajlar Database'den çekilir.
         roomsRef.Child(RoomManager.roomManagerClass.roomName).Child("Messages").GetValueAsync().ContinueWithOnMainThread(task =>
         {
             DataSnapshot snapshot = task.Result;
             if (snapshot.GetRawJsonValue() != null)
             {
+                //"Messages" ağacının altındaki liste ilgili metoda gönderilir.
                 Messages message = JsonUtility.FromJson<Messages>(snapshot.GetRawJsonValue());
                 SendMessagesToChat(message);
             }
@@ -72,11 +76,13 @@ public class MessageManager : MonoBehaviour
     }
     private void ClearChat()
     {
+        //Messages kısmı arayüzde temizlenir.
         for (int i = 0; i < chatPanel.transform.childCount; i++)
             Destroy(chatPanel.transform.GetChild(i).gameObject);
     }
     private void SendMessagesToChat(Messages message)
     {
+        //Referans alınan nesne ve bu nesneye ait lis değişkeni tek tek arayüzdeki messages kısmına yazdırılır.
         ClearChat();
         for (int i = 0; i < message.messageList.Count; i++)
         {
@@ -86,6 +92,7 @@ public class MessageManager : MonoBehaviour
     }
     public void SendButton()
     {
+        //Messages bölümündeki "Send" butonuna tanımlanmıştır.
         if (chatInput.text == null || chatInput.text == "")
             return;
 
@@ -94,6 +101,7 @@ public class MessageManager : MonoBehaviour
     }
     public void SendMessageToDatabes(string text)
     {
+        //Referans alınan texte, cihazdaki aktif oyuncunun nicki eklenerek Database'e eklenir.
         roomsRef.Child(RoomManager.roomManagerClass.roomName).Child("Messages").GetValueAsync().ContinueWithOnMainThread(task =>
         {
             Messages message = new Messages();
@@ -104,6 +112,7 @@ public class MessageManager : MonoBehaviour
             text = DatabaseManager.nick + ": " + text;
             message.messageList.Add(text);
 
+            //Database'deki mesaj sayısı limiti aştıysa ilk gönderilen mesaj listeden silinir.
             if (message.messageList.Count >= messageLimit)
                 message.messageList.Remove(message.messageList[0]);
 

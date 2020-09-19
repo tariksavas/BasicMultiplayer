@@ -30290,9 +30290,9 @@ MonoBehaviour:
   - {fileID: 53733879}
   - {fileID: 1434351785}
   - {fileID: 1638003600}
-  coinPrefab: {fileID: 8856404719926808257, guid: 43ff6a6158698ef4cb0c485fc446b560,
-    type: 3}
-  crystalPrefab: {fileID: 1014786791}
+  itemsPrefab:
+  - {fileID: 8856404719926808257, guid: 43ff6a6158698ef4cb0c485fc446b560, type: 3}
+  - {fileID: 8856404719926808257, guid: 1efafa5d6bc076946ac849dd1bcbcf11, type: 3}
   itemsParentObject: {fileID: 1748850744}
   computerObject: {fileID: 7845353536614065345}
   finishObject: {fileID: 1677096507}

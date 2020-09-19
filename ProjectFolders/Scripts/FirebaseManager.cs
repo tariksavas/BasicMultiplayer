@@ -1,5 +1,4 @@
 ﻿using Firebase.Auth;
-using Firebase.Extensions;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -18,12 +17,15 @@ public class FirebaseManager : MonoBehaviour
 
     private FirebaseAuth auth;
 
+    //Bu script Login sahnesindeki ScriptObject 'e atanmıştır.
     private void Awake()
     {
+        //Firebasede temel kullanılıcı işlemleri için kullanılan bir değişken
         auth = FirebaseAuth.DefaultInstance;
     }
     private void Start()
     {
+        //Cihazda hesaplarla alakalı olaylar listener ile dinleniyor.
         exceptionText.text = null;
         auth.StateChanged += AuthStateChange;
 
@@ -34,6 +36,7 @@ public class FirebaseManager : MonoBehaviour
     {
         if(exceptionText.text != "")
         {
+            //Uyarı textinde herhangi bir uyarı var ise bir süre sonra silinir.
             timer += Time.deltaTime;
             if (timer >= exceptionTextWaitTime)
             {
@@ -44,6 +47,7 @@ public class FirebaseManager : MonoBehaviour
     }
     private void AuthStateChange(object sender, System.EventArgs eventArgs)
     {
+        //Oyun başlatıldığında kullanıcı aktif ise direkt mainmenu sahnesine yönlendirilir.
         if (auth.CurrentUser != null)
             SceneManager.LoadScene("MainMenu");
     }
@@ -51,6 +55,7 @@ public class FirebaseManager : MonoBehaviour
     {
         if (CheckRegisterFields())
         {
+            //Inputlarda bir sorun yok ise inputlardaki değerler baz alınarak kayıt işlemi gerçekleştirilir.
             auth.CreateUserWithEmailAndPasswordAsync(registerEmail.text, registerPassword.text).ContinueWith(task =>
              {
                  if (task.IsCanceled)
@@ -71,6 +76,7 @@ public class FirebaseManager : MonoBehaviour
     }
     private bool CheckRegisterFields()
     {
+        //Register işlemi sırasında inputlarda bir sorun var ise false değeri döndürür.
         if (registerEmail.text == null || registerEmail.text == "")
         {
             exceptionText.text = "Please enter email.";
@@ -98,6 +104,7 @@ public class FirebaseManager : MonoBehaviour
     {
         if (CheckLoginFields())
         {
+            //Inputlarda bir sorun yok ise inputlardaki değerler baz alınarak giriş işlemi yapılır.
             auth.SignInWithEmailAndPasswordAsync(loginEmail.text, loginPassword.text).ContinueWith(task =>
             {
                 if (task.IsCanceled)
@@ -118,6 +125,7 @@ public class FirebaseManager : MonoBehaviour
     }
     private bool CheckLoginFields()
     {
+        //Login işlemi sırasında inputlarda bir sorun var ise false değeri döndürür.
         if (loginEmail.text == null || loginEmail.text == "")
         {
             exceptionText.text = "Please enter email.";
@@ -132,6 +140,7 @@ public class FirebaseManager : MonoBehaviour
     }
     public void GuestLogin()
     {
+        //Guest login girişi sağlanır.
         FirebaseAuth.DefaultInstance.SignInAnonymouslyAsync().ContinueWith(task =>
         {
             FirebaseUser newUser = task.Result;

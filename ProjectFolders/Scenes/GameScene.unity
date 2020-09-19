@@ -35341,10 +35341,9 @@ MonoBehaviour:
   - {fileID: 1733623830}
   - {fileID: 2047857454}
   - {fileID: 1854073132}
-  coinPrefab: {fileID: 8856404719926808257, guid: 43ff6a6158698ef4cb0c485fc446b560,
-    type: 3}
-  crystalPrefab: {fileID: 8856404719926808257, guid: 1efafa5d6bc076946ac849dd1bcbcf11,
-    type: 3}
+  itemsPrefab:
+  - {fileID: 8856404719926808257, guid: 43ff6a6158698ef4cb0c485fc446b560, type: 3}
+  - {fileID: 8856404719926808257, guid: 1efafa5d6bc076946ac849dd1bcbcf11, type: 3}
   itemsParentObject: {fileID: 1672067125}
   computerObject: {fileID: 0}
   finishObject: {fileID: 1677096507}
